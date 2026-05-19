@@ -1,0 +1,35 @@
+# Go
+*.exe
+*.out
+/bin/
+/vendor/
+*.test
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+.pytest_cache/
+.mypy_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Secrets and logs
+.env
+*.log
+logs/
+tmp/
+
+# Docker volumes
+data/
+docker-volumes/
