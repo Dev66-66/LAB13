@@ -79,6 +79,49 @@ curl http://localhost:8000/health
 
 ---
 
+## Пример использования API
+
+**Отправить юридический вопрос:**
+
+```bash
+curl -X POST http://localhost:8000/consult \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Меня незаконно уволили, что делать?"}'
+```
+
+**Пример ответа:**
+
+```json
+{
+  "task_id": "3f7a1b2c-...",
+  "agent_id": "contradiction-checker-a1b2c3d4",
+  "agent_role": "Проверщик противоречий",
+  "success": true,
+  "output": "{\"contradictions_found\": false, \"quality_score\": 90, \"notes\": \"...\"}",
+  "duration_ms": 1842
+}
+```
+
+**Получить список агентов и их статусы:**
+
+```bash
+curl http://localhost:8000/agents
+```
+
+**Просмотреть метрики системы:**
+
+```bash
+curl http://localhost:8000/metrics
+```
+
+**Демонстрация аукциона:**
+
+```bash
+curl http://localhost:8000/auction/demo
+```
+
+---
+
 ## Переменные окружения
 
 | Переменная          | Описание                                                       |
