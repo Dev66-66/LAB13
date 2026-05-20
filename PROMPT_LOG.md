@@ -296,3 +296,87 @@ env-переменными (`NATS_URL`, `REDIS_URL`, `JAEGER_ENDPOINT`, `GEMINI_
 `depends_on` nats/redis с `condition: service_healthy`.
 
 ---
+## Промпт 4.1 — Оркестратор scaffold
+**Дата:** 2026-05-20
+**Промпт:** Создание `orchestrator/` с `requirements.txt` (11 зависимостей) и `Dockerfile`
+на базе `python:3.12-slim`.
+**Результат:**
+`requirements.txt`: nats-py, fastapi, uvicorn, redis, docker, opentelemetry-api/sdk/exporter,
+python-dotenv, pydantic, httpx. `Dockerfile`: slim-образ без non-root пользователя
+(оркестратор требует доступ к Docker socket).
+
+---
+## Промпт 4.2 — Core orchestrator с NATS
+**Дата:** 2026-05-20
+**Промпт:** Реализация `orchestrator/orchestrator.py` — управление задачами через NATS
+с паттерном Future для ожидания ответов.
+**Результат:**
+Класс **AgentOrchestrator**: атрибуты `nc`, `rdb`, `pending_tasks: dict[str, Future]`.
+**connect()**: подключается к NATS/Redis, подписывается на все 4 выходных топика агентов
+(`legal.query.analyzed`, `legal.docs.found`, `legal.answer.raw`, `legal.answer.final`)
+через единый `_on_result` — это необходимо для отслеживания результатов каждого шага.
+**send_task()**: создаёт Task-словарь (совместим с Go-моделью), сохраняет Future,
+публикует в NATS, ждёт через `asyncio.wait_for`; при TimeoutError удаляет из pending_tasks.
+**_on_result()**: разрешает Future по `task_id`, проверяет `future.done()` перед set_result.
+
+---
+## Промпт 4.3 — Pipeline четырёх шагов с retry
+**Дата:** 2026-05-20
+**Промпт:** Реализация `orchestrator/pipeline.py` — последовательный запуск 4 агентов
+с OTel трассировкой и retry при таймаутах.
+**Результат:**
+Класс **LegalPipeline.execute(query)**:
+- 4 попытки (начальная + 3 retry), задержка 2s между ними при TimeoutError
+- Один OTel span `legal_pipeline.execute` оборачивает все 4 шага с атрибутами query/attempt
+- Шаги: `send_task("analyze", ..., "legal.query.raw")` →
+  `send_task("search", json.loads(result1["output"]), "legal.query.analyzed")` →
+  `send_task("generate", json.loads(result2["output"]), "legal.docs.found")` →
+  `send_task("check", json.loads(result3["output"]), "legal.answer.raw")` → return result4
+- При исчерпании всех попыток пробрасывает последний TimeoutError
+
+---
+## Промпт 4.4 — Аукционное распределение задач
+**Дата:** 2026-05-20
+**Промпт:** Реализация `orchestrator/auction.py` — выбор агента-победителя по минимальной
+ставке из данных Redis.
+**Результат:**
+Dataclass **AgentBid**: `agent_id`, `role`, `bid`, `status`.
+Класс **AuctionManager**:
+- `get_agent_bids(rdb)`: сканирует `agent:*:status`, для каждого агента читает `tasks_processed`,
+  bid = tasks_processed если idle, 1000 если busy; role извлекается из agent_id через rsplit
+- `select_winner(bids)`: фильтрует bid < 1000, возвращает min по bid или None
+- `log_auction(bids, winner)`: JSON в stdout с `participants` и `winner`
+
+---
+## Промпт 4.5 — Динамическое масштабирование через Docker API
+**Дата:** 2026-05-20
+**Промпт:** Реализация `orchestrator/scaler.py` — автоматический запуск/останов
+контейнеров агентов по нагрузке NATS.
+**Результат:**
+Класс **DynamicScaler**: `SCALE_THRESHOLD = int(env "SCALE_THRESHOLD", "3")`.
+**check_and_scale(rdb)**: GET `http://nats:8222/subsz` через httpx.AsyncClient;
+`total_pending = data["total_pending"] или data["num_subscriptions"]`;
+если pending > threshold → `docker.from_env().containers.run("lab13-universal-agent", detach=True,
+environment={AGENT_CONFIG/NATS_URL/REDIS_URL/JAEGER_ENDPOINT}, network="lab13_legal-mas-network")`,
+ID в Redis `sadd("scaled_agents", ...)`;
+если pending == 0 и scaled_agents > 0 → `spop` + `container.stop()`.
+
+---
+## Промпт 4.6 — FastAPI REST API
+**Дата:** 2026-05-20
+**Промпт:** Реализация `orchestrator/api.py`, `tracer.py`, `main.py` — REST API
+оркестратора с 6 эндпоинтами и graceful startup через FastAPI lifespan.
+**Результат:**
+**`tracer.py`**: аналогично answer-generator, OTLP → `http://{host}:4318/v1/traces`.
+**`api.py`**: FastAPI с `asynccontextmanager` lifespan (`set_startup` callback из main.py);
+HTTP middleware логирует каждый запрос в JSON (метод/путь/статус/duration_ms);
+эндпоинты: `POST /consult` (вызывает pipeline.execute), `GET /health` (nats/redis/agents),
+`GET /agents` (scan Redis agent:*:status), `GET /tasks/{id}` (Redis answer:{id} или 404),
+`GET /metrics` (sum tasks_processed + agents_online), `GET /auction/demo` (AuctionManager).
+**`main.py`**: `load_dotenv()` → module-level инициализация rdb/orchestrator/pipeline/scaler;
+`set_startup` регистрирует async startup: `orchestrator.connect()` + `create_task(_scaler_loop)`;
+`uvicorn.run(api.app, host="0.0.0.0", port=ORCHESTRATOR_PORT)`.
+`docker-compose.yml`: сервис `orchestrator` с портом 8000, Docker socket volume,
+env-переменными, `depends_on` nats/redis `service_healthy`.
+
+---
