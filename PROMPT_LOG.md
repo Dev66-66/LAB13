@@ -212,3 +212,31 @@ Publish JSON в `OutputTopic`; SET status "idle"; запись JSON-лога в 
 `go build ./...` завершился без ошибок после `go mod tidy`.
 
 ---
+## Промпт 2.8 — Конфиги ролей агентов
+**Дата:** 2026-05-20
+**Промпт:** Заполнение четырёх Markdown-файлов конфигурации в `configs/`,
+определяющих роли агентов в pipeline юридической консультации.
+**Результат:**
+Все файлы содержат секции `# Role`, `## Agent Type`, `## Input Topic`,
+`## Output Topic`, `## Rules`, `## Description` — якоря для `config.LoadConfig`.
+
+**`configs/query-analyzer.md`** — роль «Анализатор юридических запросов»:
+- AgentType: `query-analyzer`, топики: `legal.query.raw` → `legal.query.analyzed`
+- Классифицирует запрос по 5 категориям, оценивает срочность
+
+**`configs/document-searcher.md`** — роль «Поисковик по правовой базе»:
+- AgentType: `document-searcher`, топики: `legal.query.analyzed` → `legal.docs.found`
+- Ищет статьи законодательства по полю `query_type` из payload
+
+**`configs/answer-generator.md`** — роль «Генератор юридических ответов»:
+- AgentType: `answer-generator`, топики: `legal.docs.found` → `legal.answer.raw`
+- Формирует структурированный ответ с обязательным disclaimer; LLM на Python + Gemini API
+
+**`configs/contradiction-checker.md`** — роль «Проверщик противоречий»:
+- AgentType: `contradiction-checker`, топики: `legal.answer.raw` → `legal.answer.final`
+- Проверяет наличие disclaimer, выставляет `quality_score` 90 или 40
+
+Pipeline целиком: `legal.query.raw` → `legal.query.analyzed` → `legal.docs.found`
+→ `legal.answer.raw` → `legal.answer.final`.
+
+---
