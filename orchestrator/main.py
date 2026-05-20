@@ -1,19 +1,19 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-import asyncio
-import logging
-import os
-import sys
+import asyncio  # noqa: E402
+import logging  # noqa: E402
+import os  # noqa: E402
+import sys  # noqa: E402
 
-import redis
-import uvicorn
+import redis  # noqa: E402
+import uvicorn  # noqa: E402
 
-import api
-from orchestrator import AgentOrchestrator
-from pipeline import LegalPipeline
-from scaler import DynamicScaler
-from tracer import init_tracer
+import api  # noqa: E402
+from orchestrator import AgentOrchestrator  # noqa: E402
+from pipeline import LegalPipeline  # noqa: E402
+from scaler import DynamicScaler  # noqa: E402
+from tracer import init_tracer  # noqa: E402
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),

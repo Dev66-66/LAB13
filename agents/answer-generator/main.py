@@ -1,16 +1,16 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-import asyncio
-import logging
-import os
-import sys
+import asyncio  # noqa: E402
+import logging  # noqa: E402
+import os  # noqa: E402
+import sys  # noqa: E402
 
-import redis
+import redis  # noqa: E402
 
-from agent import AnswerGeneratorAgent
-from gemini_client import GeminiClient
-from tracer import init_tracer
+from agent import AnswerGeneratorAgent  # noqa: E402
+from gemini_client import GeminiClient  # noqa: E402
+from tracer import init_tracer  # noqa: E402
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),

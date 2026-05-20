@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import time
@@ -6,7 +5,6 @@ from contextlib import asynccontextmanager
 
 import redis as redis_lib
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from auction import AuctionManager

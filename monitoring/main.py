@@ -1,12 +1,12 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-import logging
-import os
-import sys
+import logging  # noqa: E402
+import os  # noqa: E402
+import sys  # noqa: E402
 
-import uvicorn
-from app import app
+import uvicorn  # noqa: E402
+from app import app  # noqa: E402
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
