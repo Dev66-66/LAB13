@@ -43,6 +43,23 @@ services:
       - legal-mas-network
     restart: unless-stopped
 
+  answer-generator:
+    build:
+      context: ./agents/answer-generator
+    environment:
+      - NATS_URL=${NATS_URL:-nats://nats:4222}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - JAEGER_ENDPOINT=${JAEGER_ENDPOINT:-http://jaeger:14268/api/traces}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - legal-mas-network
+    restart: unless-stopped
+
 networks:
   legal-mas-network:
     driver: bridge
