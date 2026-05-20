@@ -55,3 +55,58 @@ git push -u origin main
   → Branch 'main' set up to track remote branch 'main' from 'origin'.
 ```
 ---
+## Промпт 2.1 — Инициализация Go-модуля
+**Дата:** 2026-05-20
+**Промпт:** Инициализация Go-модуля для универсального агента в `agents/universal-agent/`.
+Установка зависимостей: nats.go, go-redis, opentelemetry (otel, sdk, otlptrace, otlptracehttp, trace), godotenv, uuid.
+**Результат:**
+Выполнено `go mod init github.com/Dev66-66/LAB13/agents/universal-agent`.
+Добавлены зависимости (зафиксированы в `go.mod` и `go.sum`):
+- `github.com/nats-io/nats.go v1.34.0` — клиент NATS
+- `github.com/redis/go-redis/v9 v9.5.1` — клиент Redis
+- `go.opentelemetry.io/otel v1.24.0` — ядро OpenTelemetry
+- `go.opentelemetry.io/otel/sdk v1.24.0` — SDK для трассировщика
+- `go.opentelemetry.io/otel/trace v1.24.0` — API трассировки
+- `go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.24.0` — HTTP-экспортёр в Jaeger
+- `github.com/joho/godotenv v1.5.1` — загрузка `.env`
+- `github.com/google/uuid v1.6.0` — генерация идентификаторов задач
+`go build ./...` завершился без ошибок.
+
+---
+## Промпт 2.2 — Модели данных Task и Result
+**Дата:** 2026-05-20
+**Промпт:** Создание файла `internal/models/task.go` с двумя структурами данных,
+сериализуемыми в JSON и передаваемыми через NATS.
+**Результат:**
+Создан `agents/universal-agent/internal/models/task.go`, пакет `models`.
+Структура **Task** — единица работы в pipeline:
+- `ID`, `Type`, `Payload` — идентификация и содержимое задачи
+- `TraceID`, `SpanID` — контекст распределённой трассировки
+- `Pipeline []string`, `CurrentStep int` — описание и позиция в цепочке агентов
+- `Metadata map[string]string` — произвольные метаданные
+- `CreatedAt time.Time` — метка создания
+Структура **Result** — результат обработки задачи одним агентом:
+- `TaskID`, `AgentID`, `AgentRole` — связь с задачей и агентом
+- `Success bool`, `Output string`, `Error string (omitempty)` — исход обработки
+- `TraceID string`, `DurationMs int64` — данные для трассировки и мониторинга
+- `ProcessedAt time.Time` — метка завершения обработки
+
+---
+## Промпт 2.3 — Markdown config loader
+**Дата:** 2026-05-20
+**Промпт:** Создание `internal/config/loader.go` — парсер Markdown-файлов конфигурации
+агентских ролей (из директории `configs/`).
+**Результат:**
+Создан `agents/universal-agent/internal/config/loader.go`, пакет `config`.
+Структура **AgentConfig** содержит поля: `Role`, `AgentType`, `InputTopic`, `OutputTopic`, `Rules`, `Description`.
+Функция **LoadConfig(path string) (AgentConfig, error)**:
+- Читает файл через `os.ReadFile`
+- Разбивает по строкам, отслеживает текущий заголовок (`# ...` или `## ...`)
+- При смене заголовка накопленные строки `flush`-ятся в соответствующее поле
+- Маппинг: `# Role` → `Role`, `## Agent Type` → `AgentType`, `## Input Topic` → `InputTopic`,
+  `## Output Topic` → `OutputTopic`, `## Rules` → `Rules`, `## Description` → `Description`
+- Если `Role` или `AgentType` пустые — возвращает описательную ошибку
+Также созданы файлы-заглушки: `main.go`, `internal/tracing/tracer.go`,
+`internal/agent/agent.go`, `internal/agent/processor.go`.
+
+---
