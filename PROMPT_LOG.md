@@ -464,3 +464,37 @@ document-searcher · contradiction-checker · answer-generator ·
 orchestrator · monitoring = **10 сервисов**.
 
 ---
+## Промпт 7.1 — Тесты и архитектурная документация
+**Дата:** 2026-05-20
+**Промпт:** Добавление юнит-тестов для Go-агента и Python-аукциона, создание
+архитектурной документации `docs/ARCHITECTURE.md`.
+
+**Результат:**
+
+**`agents/universal-agent/internal/agent/processor_test.go`** — 5 тестов (пакет `agent`):
+- `TestProcessTask_QueryAnalyzer_LaborLaw`: payload «Меня незаконно уволили» →
+  `query_type=трудовое` (дополнительно в processor.go добавлен ключ `"уволи"`)
+- `TestProcessTask_QueryAnalyzer_CivilLaw`: payload «Контрагент не платит по договору» →
+  `query_type=гражданское`
+- `TestProcessTask_DocumentSearcher_ReturnsDocuments`: JSON payload `query_type=трудовое` →
+  Output содержит «ТК РФ»
+- `TestProcessTask_ContradictionChecker_MissingDisclaimer`: payload без disclaimer →
+  `contradictions_found=true`
+- `TestProcessTask_ContradictionChecker_WithDisclaimer`: payload с «Disclaimer» →
+  `quality_score=90 >= 70`
+Результат: `ok github.com/Dev66-66/LAB13/agents/universal-agent/internal/agent 0.405s`
+
+**`orchestrator/tests/test_auction.py`** — 3 теста (pytest):
+- `test_select_cheapest_agent`: из трёх idle-агентов победитель = минимальная ставка (bid=2)
+- `test_busy_agent_not_selected`: busy-агент (bid=1000) исключается, победитель = idle
+- `test_empty_bids_returns_none`: пустой список → `None`
+Результат: `3 passed in 0.35s`
+
+**`docs/ARCHITECTURE.md`** — архитектурный документ:
+- Mermaid flowchart LR с полным pipeline (Client → Orchestrator → QA×2 → DS → AG → CC → Orchestrator)
+- Таблица NATS topics (5 subjects, producer/consumer)
+- Таблица Redis ключей (5 ключей, тип, TTL, содержимое)
+- Описание алгоритма аукциона (bid formula, argmin, JSON-лог)
+- Описание динамического масштабирования (10s polling, SCALE_THRESHOLD, Docker SDK)
+
+---
