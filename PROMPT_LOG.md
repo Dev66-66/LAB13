@@ -240,3 +240,59 @@ Pipeline целиком: `legal.query.raw` → `legal.query.analyzed` → `legal
 → `legal.answer.raw` → `legal.answer.final`.
 
 ---
+## Промпт 3.1 — answer-generator scaffold и Dockerfile
+**Дата:** 2026-05-20
+**Промпт:** Создание Python-сервиса `agents/answer-generator/` с базовой структурой:
+`requirements.txt`, `Dockerfile` на базе `python:3.12-slim`.
+**Результат:**
+**`requirements.txt`** — 7 зависимостей: `nats-py==2.7.2`, `google-generativeai==0.7.2`,
+`opentelemetry-api/sdk/exporter-otlp-proto-http==1.24.0`, `python-dotenv==1.0.1`,
+`redis==5.0.4`.
+**`Dockerfile`**: `python:3.12-slim`, удаление кэша apt, системный пользователь `appuser`,
+`WORKDIR /app`, установка зависимостей, `COPY . .`, `chown`, `USER appuser`,
+`ENTRYPOINT ["python", "main.py"]`.
+
+---
+## Промпт 3.2 — Gemini API клиент с retry
+**Дата:** 2026-05-20
+**Промпт:** Реализация `gemini_client.py` — клиент Gemini API с системным промптом
+юридического помощника и логикой повторных попыток при ошибке.
+**Результат:**
+Класс **GeminiClient**:
+- `__init__`: `genai.configure(api_key=...)`, создание `GenerativeModel("gemini-1.5-flash",
+  system_instruction=...)` — системный промпт требует русский язык, использование норм права
+  и обязательный дословный disclaimer в конце каждого ответа
+- `generate_legal_answer(query, documents)`: формирует prompt из запроса и списка документов;
+  4 попытки (начальная + 3 retry) с задержками 0s/1s/2s/4s через `asyncio.to_thread`;
+  при полном отказе возвращает шаблон с перечнем документов и disclaimer;
+  все ошибки логируются через `logging.warning/error`
+
+---
+## Промпт 3.3 — AnswerGeneratorAgent с NATS, Redis, OTel
+**Дата:** 2026-05-20
+**Промпт:** Реализация `tracer.py`, `agent.py`, `main.py` — полноценный Python-агент
+с подпиской на NATS, кэшированием в Redis и OTel-трассировкой.
+**Результат:**
+**`tracer.py`** — `init_tracer(service_name)`: парсит `JAEGER_ENDPOINT`, строит OTLP URL
+`http://{host}:4318/v1/traces`, создаёт `TracerProvider` с `BatchSpanProcessor`,
+регистрирует через `trace.set_tracer_provider`.
+
+**`agent.py`** — класс `AnswerGeneratorAgent`:
+- `AGENT_ID = "answer-generator-" + uuid4().hex[:8]` на уровне класса
+- `start()`: `nats.connect`, Subscribe на `legal.docs.found`, SET Redis status idle,
+  `asyncio.create_task(_keepalive)`, блокировка через `asyncio.Event().wait()`
+- `_handle_message`: OTel span → parse task/payload → SET busy → `generate_legal_answer` →
+  SET `answer:{id}` EX 600 → INCR `tasks_processed` → publish JSON на `legal.answer.raw` →
+  SET idle → JSON-лог в `logs/answer-generator.log`
+- `_keepalive(nc)`: каждые 30s обновляет `agent:{id}:status` в Redis
+- `_write_log`: JSON Lines формат, создаёт `logs/` при необходимости
+
+**`main.py`**: `load_dotenv()` на уровне модуля; `init_tracer`, `redis.from_url`,
+`GeminiClient`, `AnswerGeneratorAgent`; `asyncio.run(agent.start())`; `KeyboardInterrupt`
+→ `sys.exit(0)`.
+
+**`docker-compose.yml`**: добавлен сервис `answer-generator` с `build context`,
+env-переменными (`NATS_URL`, `REDIS_URL`, `JAEGER_ENDPOINT`, `GEMINI_API_KEY`),
+`depends_on` nats/redis с `condition: service_healthy`.
+
+---
