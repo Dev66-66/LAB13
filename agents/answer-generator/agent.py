@@ -50,9 +50,9 @@ class AnswerGeneratorAgent:
                 self._status = "busy"
                 self.redis_client.set(f"agent:{self.AGENT_ID}:status", "busy", ex=60)
 
-                t0 = asyncio.get_event_loop().time()
+                t0 = asyncio.get_running_loop().time()
                 answer = await self.gemini_client.generate_legal_answer(query, documents)
-                duration_ms = int((asyncio.get_event_loop().time() - t0) * 1000)
+                duration_ms = int((asyncio.get_running_loop().time() - t0) * 1000)
 
                 self.redis_client.set(f"answer:{task['id']}", answer, ex=600)
                 self.redis_client.incr(f"agent:{self.AGENT_ID}:tasks_processed")

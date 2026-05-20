@@ -34,18 +34,20 @@ class DynamicScaler:
 
         if total_pending > self.SCALE_THRESHOLD:
             try:
-                container = docker.from_env().containers.run(
-                    image="lab13-universal-agent",
-                    detach=True,
-                    environment={
-                        "AGENT_CONFIG": "/app/configs/query-analyzer.md",
-                        "NATS_URL": _NATS_URL,
-                        "REDIS_URL": _REDIS_URL,
-                        "JAEGER_ENDPOINT": _JAEGER_ENDPOINT,
-                    },
-                    network="lab13_legal-mas-network",
-                    remove=False,
-                )
+                def _run_container():
+                    return docker.from_env().containers.run(
+                        image="lab13-universal-agent",
+                        detach=True,
+                        environment={
+                            "AGENT_CONFIG": "/app/configs/query-analyzer.md",
+                            "NATS_URL": _NATS_URL,
+                            "REDIS_URL": _REDIS_URL,
+                            "JAEGER_ENDPOINT": _JAEGER_ENDPOINT,
+                        },
+                        network="lab13_legal-mas-network",
+                        remove=False,
+                    )
+                container = await asyncio.to_thread(_run_container)
                 rdb.sadd("scaled_agents", container.id)
                 print(f"[Scaler] Запущен новый агент: {container.id[:12]}")
             except Exception as exc:
@@ -55,7 +57,7 @@ class DynamicScaler:
             try:
                 cid_raw = rdb.spop("scaled_agents")
                 cid = cid_raw.decode() if isinstance(cid_raw, bytes) else cid_raw
-                docker.from_env().containers.get(cid).stop()
+                await asyncio.to_thread(lambda: docker.from_env().containers.get(cid).stop())
                 print(f"[Scaler] Остановлен лишний агент: {cid[:12]}")
             except Exception as exc:
                 logger.error("Не удалось остановить контейнер: %s", exc)

@@ -50,7 +50,7 @@ class LegalPipeline:
                     )
                     result4 = await self.orchestrator.send_task(
                         "check",
-                        json.loads(result3["output"]),
+                        {"answer": result3["output"]},
                         "legal.answer.raw",
                         timeout=30,
                     )

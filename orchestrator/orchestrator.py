@@ -51,7 +51,7 @@ class AgentOrchestrator:
             "current_step": 0,
             "metadata": {},
         }
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         future: asyncio.Future = loop.create_future()
         self.pending_tasks[task["id"]] = future
 
