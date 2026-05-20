@@ -118,20 +118,40 @@ docker compose logs -f query-analyzer query-analyzer-2
 ```
 LAB13/
 ├── agents/
-│   └── universal-agent/        # Универсальный шаблон агента
-│       ├── configs/            # Конфигурационные промпты агентов
-│       │   ├── query-analyzer.md       # Промпт анализатора запросов
-│       │   ├── document-searcher.md    # Промпт поисковика документов
-│       │   ├── answer-generator.md     # Промпт генератора ответов
-│       │   └── contradiction-checker.md # Промпт верификатора
-│       └── Dockerfile          # Образ Docker для агента
-├── orchestrator/               # Оркестратор: маршрутизация и масштабирование
-├── monitoring/                 # Дашборды мониторинга (Prometheus/Grafana)
-├── docker/                     # Вспомогательные Docker-конфиги и nginx
-├── docs/                       # Документация и диаграммы архитектуры
-├── docker-compose.yml          # Описание всех сервисов
+│   ├── universal-agent/        # Go-агент (query-analyzer, document-searcher, contradiction-checker)
+│   │   ├── configs/            # Конфигурационные промпты агентов
+│   │   │   ├── query-analyzer.md
+│   │   │   ├── document-searcher.md
+│   │   │   ├── answer-generator.md
+│   │   │   └── contradiction-checker.md
+│   │   ├── internal/
+│   │   │   ├── agent/          # agent.go, processor.go, processor_test.go
+│   │   │   ├── config/         # loader.go
+│   │   │   ├── models/         # task.go
+│   │   │   └── tracing/        # tracer.go
+│   │   ├── Dockerfile
+│   │   └── main.go
+│   └── answer-generator/       # Python-агент (Gemini API)
+│       ├── agent.py
+│       ├── gemini_client.py
+│       ├── tracer.py
+│       ├── main.py
+│       └── Dockerfile
+├── orchestrator/               # Оркестратор: маршрутизация, аукцион, масштабирование
+│   ├── tests/                  # pytest: test_auction.py
+│   ├── api.py
+│   ├── auction.py
+│   ├── orchestrator.py
+│   ├── pipeline.py
+│   ├── scaler.py
+│   └── Dockerfile
+├── monitoring/                 # Веб-дашборд (FastAPI + Jinja2 + dark CSS)
+├── docs/                       # Архитектурная документация
+│   └── ARCHITECTURE.md         # Mermaid pipeline, NATS topics, Redis keys, auction
+├── docker/                     # Вспомогательные Docker-конфиги
+├── docker-compose.yml          # 10 сервисов
 ├── .env.example                # Шаблон переменных окружения
-├── .gitignore                  # Правила игнорирования файлов
-├── README.md                   # Этот файл
+├── .gitignore
+├── README.md
 └── PROMPT_LOG.md               # Журнал выполненных промптов
 ```
