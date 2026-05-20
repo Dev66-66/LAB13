@@ -137,3 +137,78 @@ Named volume: `redis-data`.
 `internal/agent/agent.go`, `internal/agent/processor.go`.
 
 ---
+## Промпт 2.4 — OpenTelemetry трассировка
+**Дата:** 2026-05-20
+**Промпт:** Реализация `internal/tracing/tracer.go` — инициализация TracerProvider
+с OTLP HTTP-экспортёром для Jaeger.
+**Результат:**
+Создана функция **InitTracer(serviceName string) (*sdktrace.TracerProvider, error)**:
+- `otlptracehttp.New` с `WithEndpoint` и `WithInsecure()` — без TLS внутри Docker-сети
+- Endpoint извлекается из `JAEGER_ENDPOINT` через `resolveEndpoint`: парсит URL и берёт
+  `host:port`; если переменная не задана — дефолт `jaeger:4318` (OTLP HTTP порт)
+- `resource.New` с атрибутами `service.name=serviceName`, `service.version="1.0.0"`
+- `sdktrace.WithBatcher(exporter)` — пакетная отправка спанов
+- При ошибке создания resource — корректно завершает exporter перед возвратом ошибки
+Вспомогательная функция `resolveEndpoint` отделяет парсинг URL от основной логики.
+
+---
+## Промпт 2.5 — Processor с логикой четырёх типов агентов
+**Дата:** 2026-05-20
+**Промпт:** Реализация `internal/agent/processor.go` — обработка задач для всех четырёх
+типов агентов с встроенной базой юридических документов.
+**Результат:**
+Переменная **legalDatabase** — встроенная база из 5 категорий:
+`трудовое` (3 статьи ТК РФ), `гражданское` (3 статьи ГК РФ), `уголовное` (3 статьи УК РФ),
+`административное` (2 статьи КоАП РФ), `общее` (Конституция + ГК РФ).
+
+Функция **ProcessTask(cfg, task)** — switch по `cfg.AgentType`:
+- `query-analyzer`: определяет тип вопроса по ключевым словам через `strings.ToLower` +
+  `containsAny`; возвращает JSON `{query_type, urgency, original_query}`
+- `document-searcher`: парсит payload как JSON, извлекает `query_type`, ищет в базе;
+  при отсутствии ключа — возвращает категорию "общее"; JSON `{documents, query_type, source}`
+- `contradiction-checker`: проверяет наличие подстроки `disclaimer`; без неё —
+  `contradictions_found=true, quality_score=40`; с ней — `false, 90`; JSON с `notes`
+- default: строка `"Агент {role}: получено задание {id}, payload: {payload}"`
+
+Во всех случаях `Result.Success=true`, `TaskID`, `AgentRole`, `TraceID`, `ProcessedAt` заполнены.
+
+---
+## Промпт 2.6 — Agent core: NATS, Redis, JSON-логирование
+**Дата:** 2026-05-20
+**Промпт:** Реализация `internal/agent/agent.go` — основная структура агента
+с подпиской на NATS, хранением статуса в Redis и JSON-логированием.
+**Результат:**
+Структура **Agent**: `id`, `cfg`, `nc *nats.Conn`, `rdb *redis.Client`,
+`tracer trace.Tracer`, `tp *sdktrace.TracerProvider`, `logFile *os.File`,
+`mu sync.Mutex`, `status string`.
+
+**NewAgent(cfg)**: подключение к NATS (env `NATS_URL`, дефолт `nats.DefaultURL`),
+Redis (env `REDIS_URL` через `redis.ParseURL`, дефолт `redis://redis:6379`),
+трейсер через `InitTracer`; ID = `agentType-{uuid[:8]}`; создание `logs/`
+через `os.MkdirAll`; открытие лог-файла с флагами `O_APPEND|O_CREATE|O_WRONLY`.
+
+**Start(ctx)**: SET `agent:{id}:status "idle" EX 60`, Subscribe на `InputTopic`,
+keepalive-горутина каждые 30s обновляет TTL через mutex-protected `a.status`,
+блокируется на `<-ctx.Done()`, затем `Unsubscribe`, `nc.Close`, `logFile.Close`,
+`tp.Shutdown`.
+
+**handleMessage**: десериализация Task, создание OTel span с атрибутами
+`agent.id/role`, `task.id/type`; SET status "busy"; `ProcessTask`;
+`INCR agent:{id}:tasks_processed`; заполнение `AgentID/DurationMs/ProcessedAt`;
+Publish JSON в `OutputTopic`; SET status "idle"; запись JSON-лога в файл.
+
+---
+## Промпт 2.7 — main.go с graceful shutdown
+**Дата:** 2026-05-20
+**Промпт:** Реализация `main.go` — точки входа с загрузкой конфигурации
+и graceful shutdown по сигналам ОС.
+**Результат:**
+- `godotenv.Load()` — ошибка игнорируется (`_ =`), переменные берутся из Docker-окружения
+- Чтение `AGENT_CONFIG` из env → `config.LoadConfig(path)` → `log.Fatalf` при ошибке
+- `agent.NewAgent(cfg)` → `log.Fatalf` при ошибке
+- `signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)` —
+  контекст отменяется при Ctrl+C или `docker stop`; `defer stop()` освобождает ресурсы
+- `a.Start(ctx)` блокируется до сигнала, затем корректно завершает NATS, Redis, трейсер
+`go build ./...` завершился без ошибок после `go mod tidy`.
+
+---
