@@ -55,6 +55,33 @@ git push -u origin main
   → Branch 'main' set up to track remote branch 'main' from 'origin'.
 ```
 ---
+## Промпт 1.1 — Docker Compose инфраструктура
+**Дата:** 2026-05-20
+**Промпт:** Создание инфраструктурного слоя проекта: заполнение `docker-compose.yml`
+тремя сервисами (NATS, Redis, Jaeger) и добавление многоэтапных Dockerfile для
+Go- и Python-сервисов в директорию `docker/`.
+**Результат:**
+Файл **`docker-compose.yml`** заменён со следующими сервисами:
+- `nats` (image: `nats:2.10-alpine`) — брокер сообщений с JetStream, порты 4222/8222,
+  healthcheck через `nc -z localhost 4222` (interval 5s, timeout 3s, retries 5)
+- `redis` (image: `redis:7-alpine`) — кэш сессий с `appendonly yes`, `maxmemory 256mb`,
+  политика `allkeys-lru`, порт 6379, named volume `redis-data`, healthcheck `redis-cli ping`
+- `jaeger` (image: `jaegertracing/all-in-one:1.57`) — распределённая трассировка,
+  `COLLECTOR_OTLP_ENABLED=true`, порты 16686 (UI), 14268, 4317, 4318
+Все сервисы подключены к сети `legal-mas-network` (driver: bridge).
+Named volume: `redis-data`.
+
+Файл **`docker/go-agent.Dockerfile`** — многоэтапная сборка Go-агента:
+- Этап `builder` (golang:1.22-alpine): загрузка зависимостей, сборка с флагами
+  `CGO_ENABLED=0 GOOS=linux -ldflags="-w -s"` (минимальный бинарник без отладочных символов)
+- Финальный образ (alpine:3.19): только `ca-certificates` и `tzdata`, непривилегированный
+  пользователь `appuser`, копируются бинарник и директория `configs/`
+
+Файл **`docker/python.Dockerfile`** — образ для Python-сервисов:
+- Base: `python:3.12-slim`, установка `curl` и `gcc` без рекомендуемых пакетов
+- Непривилегированный пользователь `appuser`, зависимости через `requirements.txt`
+
+---
 ## Промпт 2.1 — Инициализация Go-модуля
 **Дата:** 2026-05-20
 **Промпт:** Инициализация Go-модуля для универсального агента в `agents/universal-agent/`.
