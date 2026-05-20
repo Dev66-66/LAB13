@@ -43,6 +43,28 @@ services:
       - legal-mas-network
     restart: unless-stopped
 
+  orchestrator:
+    build:
+      context: ./orchestrator
+    ports:
+      - "8000:8000"
+    environment:
+      - NATS_URL=${NATS_URL:-nats://nats:4222}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - JAEGER_ENDPOINT=${JAEGER_ENDPOINT:-http://jaeger:14268/api/traces}
+      - SCALE_THRESHOLD=${SCALE_THRESHOLD:-3}
+      - ORCHESTRATOR_PORT=${ORCHESTRATOR_PORT:-8000}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - legal-mas-network
+    restart: unless-stopped
+
   answer-generator:
     build:
       context: ./agents/answer-generator
