@@ -43,6 +43,67 @@ services:
       - legal-mas-network
     restart: unless-stopped
 
+  query-analyzer:
+    build:
+      context: ./agents/universal-agent
+    image: lab13-universal-agent
+    environment:
+      - AGENT_CONFIG=/app/configs/query-analyzer.md
+      - NATS_URL=${NATS_URL:-nats://nats:4222}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - JAEGER_ENDPOINT=${JAEGER_ENDPOINT:-http://jaeger:14268/api/traces}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - legal-mas-network
+    restart: unless-stopped
+
+  query-analyzer-2:
+    image: lab13-universal-agent
+    environment:
+      - AGENT_CONFIG=/app/configs/query-analyzer.md
+      - NATS_URL=${NATS_URL:-nats://nats:4222}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - JAEGER_ENDPOINT=${JAEGER_ENDPOINT:-http://jaeger:14268/api/traces}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - query-analyzer
+    networks:
+      - legal-mas-network
+    restart: unless-stopped
+
+  document-searcher:
+    image: lab13-universal-agent
+    environment:
+      - AGENT_CONFIG=/app/configs/document-searcher.md
+      - NATS_URL=${NATS_URL:-nats://nats:4222}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - JAEGER_ENDPOINT=${JAEGER_ENDPOINT:-http://jaeger:14268/api/traces}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - query-analyzer
+    networks:
+      - legal-mas-network
+    restart: unless-stopped
+
+  contradiction-checker:
+    image: lab13-universal-agent
+    environment:
+      - AGENT_CONFIG=/app/configs/contradiction-checker.md
+      - NATS_URL=${NATS_URL:-nats://nats:4222}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - JAEGER_ENDPOINT=${JAEGER_ENDPOINT:-http://jaeger:14268/api/traces}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - query-analyzer
+    networks:
+      - legal-mas-network
+    restart: unless-stopped
+
   orchestrator:
     build:
       context: ./orchestrator
