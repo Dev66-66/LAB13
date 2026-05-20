@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="section-title">История задач</div>
+<div class="card" style="padding:0; overflow:hidden;">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:280px;">Task ID</th>
+        <th>Answer Preview</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for task in tasks %}
+      <tr>
+        <td class="mono" style="font-size:0.78rem; color:#94a3b8;">{{ task.id }}</td>
+        <td style="font-size:0.88rem;">{{ task.preview }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="2" style="text-align:center; color:#64748b; padding:24px;">
+          Нет выполненных задач
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

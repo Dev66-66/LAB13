@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="metrics-grid">
+  <div class="card metric-card">
+    <div class="metric-value" id="agentsOnline">{{ metrics.online_agents }}</div>
+    <div class="metric-label">Agents Online</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-value" id="totalTasks">{{ metrics.total_tasks_processed }}</div>
+    <div class="metric-label">Total Tasks</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-value" id="scaledAgents">{{ metrics.scaled_agents }}</div>
+    <div class="metric-label">Scaled Agents</div>
+  </div>
+</div>
+
+<div class="section-title">Агенты</div>
+<div class="agents-grid">
+  {% for agent in agents %}
+  <div class="card status-{{ agent.status }}" data-agent-id="{{ agent.id }}">
+    <div class="agent-id">{{ agent.id }}</div>
+    <div class="agent-role">{{ agent.role }}</div>
+    <div class="agent-status badge-{{ agent.status }}">{{ agent.status }}</div>
+    <div class="agent-tasks">{{ agent.tasks_processed }} tasks</div>
+  </div>
+  {% else %}
+  <div class="card" style="grid-column: 1/-1; text-align:center; color:#64748b;">
+    Агенты не зарегистрированы в Redis
+  </div>
+  {% endfor %}
+</div>
+
+<div class="last-updated" id="lastUpdated"></div>
+
+{% endblock %}

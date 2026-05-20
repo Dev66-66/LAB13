@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="section-title">Distributed Tracing — Jaeger UI</div>
+<a href="{{ jaeger_url }}" class="jaeger-link" target="_blank" rel="noopener">
+  Открыть Jaeger UI в новой вкладке &rarr;
+</a>
+<iframe
+  src="{{ jaeger_url }}"
+  class="jaeger-frame"
+  title="Jaeger UI"
+  loading="lazy"
+></iframe>
+
+{% endblock %}

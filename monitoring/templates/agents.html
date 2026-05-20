@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="section-title">Все агенты</div>
+<div class="card" style="padding:0; overflow:hidden;">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Role</th>
+        <th>Status</th>
+        <th>Tasks Processed</th>
+        <th>Last Seen</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for agent in agents %}
+      <tr>
+        <td class="mono">{{ agent.id }}</td>
+        <td>{{ agent.role }}</td>
+        <td>
+          <span class="status-badge status-badge-{{ agent.status }}">{{ agent.status }}</span>
+        </td>
+        <td class="mono">{{ agent.tasks_processed }}</td>
+        <td style="color:#64748b;">—</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" style="text-align:center; color:#64748b; padding:24px;">
+          Нет зарегистрированных агентов
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
