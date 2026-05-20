@@ -430,3 +430,37 @@ responsive agents-grid (`auto-fill minmax(230px, 1fr)`).
 `depends_on: redis` (без healthcheck condition).
 
 ---
+## Промпт 6.1 — Финализация Docker Compose
+**Дата:** 2026-05-20
+**Промпт:** Написание финального `Dockerfile` для Go-агента и добавление четырёх
+контейнеров агентов в `docker-compose.yml` с демонстрацией балансировки нагрузки.
+**Результат:**
+**`agents/universal-agent/Dockerfile`** — двухэтапная сборка:
+- `builder` (golang:1.22-alpine): `go mod download` → `go build -ldflags="-w -s"`,
+  `CGO_ENABLED=0 GOOS=linux` — статический бинарник без CGO
+- Финальный образ (alpine:3.19): `ca-certificates` + `tzdata`, непривилегированный
+  `appuser`, копируются бинарник и директория `configs/`
+
+**`docker-compose.yml`** — добавлены 4 сервиса Go-агентов:
+- `query-analyzer`: `build context ./agents/universal-agent`, `image: lab13-universal-agent`
+  (метка образа для переиспользования), `AGENT_CONFIG=/app/configs/query-analyzer.md`,
+  `depends_on` nats/redis `service_healthy`
+- `query-analyzer-2`: `image: lab13-universal-agent` (без build), те же конфиг и топик;
+  `depends_on: query-analyzer` гарантирует, что образ уже собран
+- `document-searcher`: `AGENT_CONFIG=/app/configs/document-searcher.md`
+- `contradiction-checker`: `AGENT_CONFIG=/app/configs/contradiction-checker.md`
+Все используют общую сеть `legal-mas-network`, `restart: unless-stopped`.
+
+**Балансировка нагрузки**: оба `query-analyzer` подписаны на `legal.query.raw`.
+NATS распределяет сообщения round-robin автоматически — без доп. конфигурации.
+Динамически поднятые `DynamicScaler`-ом контейнеры присоединяются к той же балансировке.
+
+**`README.md`**: добавлен раздел «Демонстрация балансировки нагрузки» с командой
+`docker compose logs -f query-analyzer query-analyzer-2`.
+
+**Итоговый состав системы** (`docker compose up --build`):
+nats · redis · jaeger · query-analyzer · query-analyzer-2 ·
+document-searcher · contradiction-checker · answer-generator ·
+orchestrator · monitoring = **10 сервисов**.
+
+---
