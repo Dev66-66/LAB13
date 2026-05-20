@@ -380,3 +380,53 @@ HTTP middleware логирует каждый запрос в JSON (метод/�
 env-переменными, `depends_on` nats/redis `service_healthy`.
 
 ---
+## Промпт 5.1 — Monitoring service scaffold
+**Дата:** 2026-05-20
+**Промпт:** Создание `monitoring/` с `requirements.txt` (6 зависимостей) и `Dockerfile`
+на базе `python:3.12-slim` с non-root пользователем `appuser`.
+**Результат:**
+`requirements.txt`: fastapi, uvicorn, jinja2, redis, httpx, python-dotenv.
+`Dockerfile`: slim-образ, `addgroup/adduser appuser`, `WORKDIR /app`, chown, `USER appuser`,
+`ENTRYPOINT ["python", "main.py"]`. В отличие от оркестратора здесь non-root безопасен
+(нет Docker socket).
+
+---
+## Промпт 5.2 — Redis клиент для агрегации данных
+**Дата:** 2026-05-20
+**Промпт:** Реализация `monitoring/redis_client.py` — агрегация данных агентов из Redis
+для дашборда.
+**Результат:**
+Класс **MonitoringRedisClient**:
+- `get_all_agents()`: SCAN `agent:*:status`; для каждого ключа извлекает agent_id,
+  читает status и tasks_processed; роль выводит через `rsplit("-", 1)[0]`;
+  возвращает `list[dict]` с полями id/role/status/tasks_processed
+- `get_system_metrics()`: вызывает get_all_agents, считает total/online агентов,
+  суммирует tasks_processed, читает `SCARD "scaled_agents"`; возвращает dict с
+  `total_agents`, `online_agents`, `total_tasks_processed`, `scaled_agents`
+
+---
+## Промпт 5.3 — Jinja2 шаблоны и тёмная тема
+**Дата:** 2026-05-20
+**Промпт:** Реализация FastAPI-приложения (`app.py`, `main.py`), 5 HTML-шаблонов
+с наследованием base.html, тёмной темы CSS и JS авторефреша.
+**Результат:**
+**`templates/base.html`**: Google Fonts (Inter + JetBrains Mono), nav (Dashboard/Agents/
+Tasks/Traces), header с `.refresh-dot` (pulse-анимация 2s infinite opacity 1→0.2→1).
+**`templates/dashboard.html`**: 3 metric-карточки (agentsOnline/totalTasks/scaledAgents)
+с id для JS; agents-grid с `data-agent-id` и `status-{status}` классами; `lastUpdated`.
+**`templates/agents.html`**: таблица с badge-статусами (pill-кнопки с rgba-фонами).
+**`templates/tasks.html`**: таблица `answer:*` ключей с preview до 150 символов.
+**`templates/traces.html`**: ссылка + `<iframe>` на Jaeger UI.
+**`static/style.css`**: CSS-переменные `--bg/#0d0d1a`, `--surface/#13132a`, `--accent/#7c6af7`
+и т.д.; `.status-idle/busy/offline` border-left; `.status-badge-*` pill-компоненты;
+responsive agents-grid (`auto-fill minmax(230px, 1fr)`).
+**`static/app.js`**: `setInterval(refreshStats, 5000)`; fetch `/api/stats`; обновляет
+метрики, className/textContent карточек агентов, время `lastUpdated`, мигание dot.
+**`app.py`**: `BASE_DIR = Path(__file__).parent` для надёжного пути к templates/static;
+5 роутов (`/`, `/agents`, `/tasks`, `/traces`, `/api/stats`); `/tasks` сканирует
+`answer:*` и формирует preview.
+**`main.py`**: `load_dotenv()` → `uvicorn.run(app, host="0.0.0.0", port=MONITORING_PORT)`.
+**`docker-compose.yml`**: сервис `monitoring` порт 8080, `REDIS_URL/JAEGER_URL/MONITORING_PORT`,
+`depends_on: redis` (без healthcheck condition).
+
+---
