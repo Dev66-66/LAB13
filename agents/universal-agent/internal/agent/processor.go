@@ -89,9 +89,13 @@ func analyzeQuery(task models.Task) string {
 func searchDocuments(task models.Task) string {
 	var parsed map[string]interface{}
 	queryType := "общее"
+	originalQuery := ""
 	if json.Unmarshal([]byte(task.Payload), &parsed) == nil {
 		if qt, ok := parsed["query_type"].(string); ok {
 			queryType = qt
+		}
+		if oq, ok := parsed["original_query"].(string); ok {
+			originalQuery = oq
 		}
 	}
 
@@ -101,9 +105,10 @@ func searchDocuments(task models.Task) string {
 	}
 
 	out, _ := json.Marshal(map[string]interface{}{
-		"documents":  docs,
-		"query_type": queryType,
-		"source":     "database",
+		"documents":      docs,
+		"query_type":     queryType,
+		"original_query": originalQuery,
+		"source":         "database",
 	})
 	return string(out)
 }

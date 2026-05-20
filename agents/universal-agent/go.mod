@@ -1,6 +1,6 @@
 module github.com/Dev66-66/LAB13/agents/universal-agent
 
-go 1.26.1
+go 1.22
 
 require (
 	github.com/google/uuid v1.6.0
