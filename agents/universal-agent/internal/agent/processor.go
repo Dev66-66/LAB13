@@ -66,7 +66,7 @@ func analyzeQuery(task models.Task) string {
 
 	var queryType string
 	switch {
-	case containsAny(payload, "трудов", "увольн", "работодат"):
+	case containsAny(payload, "трудов", "увольн", "уволи", "работодат"):
 		queryType = "трудовое"
 	case containsAny(payload, "уголовн", "преступл", "арест"):
 		queryType = "уголовное"
